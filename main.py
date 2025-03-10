@@ -11,6 +11,7 @@ from node import draw_square_grid, draw_triangle_grid
 
 create_table()
 
+grid_type = Grid # start with regular grid until changed
 ROWS = 50 #default rows
 WIDTH = 700
 pygame.init()
@@ -747,7 +748,6 @@ def depth_map(draw, grid_obj):
       set_tracker.add(node)
 
 
-
   set_tracker.remove(grid[0][0])
   start = random.choice(list(set_tracker))
   set_tracker.remove(start) #make sure end isn't same square as start
@@ -851,14 +851,16 @@ def draw_side(screen, width, rows, algorithm, run_time, searched_nodes):
   display_box(screen, "Load map", width + 100, 440, 100, 35, YELLOW)
   screen.blit(pygame.font.Font(None, 24).render(time_text, True, BLACK), (width+5, 500))
   screen.blit(pygame.font.Font(None, 24).render(nodes_text, True, BLACK), (width + 5, 520))
+  display_box(screen, "Square grid ", width, 540, 100, 35, CYAN)
+  display_box(screen, "Triangle grid", width + 100, 540, 100, 35, CYAN)
 
 
 
 
   pygame.display.update()
 
-def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or node changed
-  grid_obj = Triangle(ROWS, width)
+def main(screen, width, ROWS, grid_type): #Runs the whole process, eg if quit clicked or node changed
+  grid_obj = grid_type(ROWS, width)
   grid = grid_obj.grid
   current_algorithm = 0
   start = None
@@ -921,7 +923,7 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
           try:
             new_row = int(new_row)  # Convert to an integer
             if width % new_row == 0:  # make sure it's a multiple of our grid
-              main(screen, width, new_row)
+              main(screen, width, new_row, grid_type)
             else:
               raise ValueError("Input does not divide width evenly.")
           except (ValueError, TypeError):
@@ -990,6 +992,14 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
           if holder is not None:
             grid_obj = holder
 
+        elif width < x < (width+100) and 540 < y < 575:
+          grid_type = Grid
+          main(screen, width, ROWS, Grid)
+
+        elif (width+100) < x < (width+200) and 540 < y < 575:
+          grid_type = Triangle
+          main(screen, width, ROWS, Triangle)
+
 
 
       elif pygame.mouse.get_pressed()[2]: #if right mouse button clicked
@@ -1008,16 +1018,12 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
         #check to make sure there is a start and end node before algorithm is run
           grid_obj.reset() #removes all except the walls, start and end nodes
 
-          astar(lambda: grid_obj.draw(screen), grid, start, end)
+          astar(lambda: grid_obj.draw(screen), grid_obj)
 # this calls the algorithm that we are using and has a function within it (draw())
 # lambda is an anonymous function that calls draw function we run it, without having
 # to know everything from the draw function
 # we need this so that when we try to run the algorithm it calls the draw function
 # so it is visually displayed
-        if event.key == pygame.K_c: #clear all
-          start = None
-          end = None
-          grid = makegrid(ROWS, width)
 
         if event.key == pygame.K_r: #clear all
           grid_obj.reset()
@@ -1034,4 +1040,4 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
         
   pygame.quit()
 
-main(screen, WIDTH, ROWS) #call function
+main(screen, WIDTH, ROWS, grid_type) #call function
