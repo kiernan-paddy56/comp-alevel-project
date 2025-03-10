@@ -6,14 +6,15 @@ import sqlite3
 from database import create_table, insert_grid, fetch_grid
 from inputboxfunc import input_box, display_box
 clock = pygame.time.Clock()
+from classes import Grid,Triangle,TriangleNode,Node
+from node import draw_square_grid, draw_triangle_grid
 
 create_table()
-
 
 ROWS = 50 #default rows
 WIDTH = 700
 pygame.init()
-screen = pygame.display.set_mode((WIDTH+200, WIDTH)) #frame size of 800 by 800
+screen = pygame.display.set_mode((WIDTH+200, WIDTH)) #frame size of 900 by 900
 pygame.display.set_caption('Pathfinding')
 
 BLACK = (0, 0, 0)
@@ -28,113 +29,6 @@ GREY = (128, 128, 128)
 ORANGE = (255, 165, 0)
 PURPLE = (128, 0, 128)
 
-
-class Node:
-
-  def __init__(self, row, col, width, totalrows):
-    self.row = row
-    self.col = col
-    self.x = row * width
-    self.y = col * width #finds the position of the node given its coordinates and width
-    self.color = WHITE #all nodes start as being white(empty space/ free block)
-    self.width = width #width and height of the blocks
-    self.neighbors = [] #array for all the neighbors of a node
-    self.totalrows = totalrows
-
-  def get_node_info_(self):
-    array = [self.row, self.col, self.color]
-    return array
-
-
-  def getpos(self):
-    return self.row, self.col
-
-  def isopen(self):
-    return self.color == ORANGE #is node open
-
-  def isclosed(self):
-    return self.color == BLUE #is node closed
-
-  def ispath(self):
-    return self.color == PURPLE #is node open
-
-  def isblock(self):
-    return self.color == BLACK #is node a block
-
-  def isstart(self):
-    return self.color == GREEN #is node the start node
-
-  def isend(self):
-    return self.color == RED #is node the end node
-
-  def ispath2(self):
-    return self.color == MAGENTA #is node the end node
-
-  def isplain(self):
-    return self.color == WHITE # is node a plain node
-
-  def makeopen(self):
-    self.color = ORANGE #turn to opened
-
-  def makeclose(self):
-    self.color = BLUE #turn to closed
-
-  def makeblock(self):
-    self.color = BLACK #become a block
-
-  def makestart(self):
-    self.color = GREEN #chosen as start node
-
-  def makeend(self):
-    self.color = RED #chosen as end node
-
-  def makepath2(self):
-    self.color = MAGENTA #chosen as end node
-
-  def makeplain(self):
-    self.color = WHITE #switch back to plain node
-
-  def makepath(self):
-    self.color = PURPLE #for final path as optimal solution
-
-  def draw(self, screen): #method we call when we want to draw node on the screen
-    pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.width))
-    #only parameter needed to draw the node when we call it later will be screen
-    #the rest of the parameters here are stored as atributes
-
-
-  def update_neighbors(self, grid): #so we know all of the available neighbors to a node
-    self.neighbors = [] #create array for neighbors to go into, stored as an attribute
-
-    if self.row < self.totalrows -1 and not grid[self.row+1][self.col].isblock(): #down
-      self.neighbors.append(grid[self.row+1][self.col]) #is node below available
-      #we need the -1 as we start from 0 in rows so the last row is totalrows -1
-
-    if self.row > 0 and not grid[self.row-1][self.col].isblock(): #up
-      self.neighbors.append(grid[self.row-1][self.col]) #is node above available
-
-    if self.col < self.totalrows -1 and not grid[self.row][self.col+1].isblock(): #right
-      self.neighbors.append(grid[self.row][self.col+1]) #is node right available
-
-    if self.col > 0 and not grid[self.row][self.col-1].isblock(): #left
-      self.neighbors.append(grid[self.row][self.col-1]) #is node left available
-
-    if self.col > 0 and self.row > 0 and not grid[self.row-1][self.col-1].isblock():
-      #leftup
-      self.neighbors.append(grid[self.row-1][self.col-1]) #is node leftup available
-
-    if self.col > 0 and self.row < self.totalrows -1 and \
-    not grid[self.row+1][self.col-1].isblock(): #leftdown
-      self.neighbors.append(grid[self.row+1][self.col-1]) #is node leftdown available
-
-
-    if self.row > 0 and self.col < self.totalrows -1 and \
-    not grid[self.row-1][self.col+1].isblock(): #rightup
-      self.neighbors.append(grid[self.row-1][self.col+1]) #is node righup available
-
-    if self.row < self.totalrows -1 and self.col < self.totalrows -1 and\
-    not grid[self.row+1][self.col+1].isblock(): #rightdown
-      self.neighbors.append(grid[self.row+1][self.col+1]) #is node rightdown available
 
 
 class Priority:
@@ -167,47 +61,50 @@ def savemap(grid, screen):
   else:
     return None
 
-def getmap(screen, rows, width):
-  grid = []
+def getmap(screen, rows, width, grid_obj):
   grid_name = input_box(screen, "name the map:", 200, 300, 400, 50)
   if grid_name:
     got_grid = fetch_grid(grid_name)
     if got_grid:
-      grid = turn_data_to_map(draw, got_grid, rows, width)
+      turn_data_to_map(got_grid, rows, width, grid_obj)
     else:
       print("no grid with that name")
+      return None
 
   else:
     return None
 
-  return grid
+  return grid_obj
 
-def turn_data_to_map(draw, got_grid, rows, width):
+def turn_data_to_map(got_grid, rows, width, grid_obj):
   spacing = width // rows
-  grid = makegrid(rows, width)
   count = 0
-  grid = []
+  grid_obj.grid = [] # makes sure nodes are added grid class so they can be drawn
+
+  # define start and end here avoid NameError if none are found
+  start = None
+  end = None
+
   for i in range(rows):
-    grid.append([])  # creates a 2d array/ adds a new array for each row
+    grid_obj.grid.append([])  # creates a 2d array/ adds a new array for each row
     for j in range(rows):
       row = got_grid[count][0]
       col = got_grid[count][1]
       color = got_grid[count][2]
       count += 1
       node = Node(row, col, spacing, rows)  # pass all the parameters of node class in
-      grid[i].append(node)
+      grid_obj.grid[i].append(node)
       if color == [255, 255, 255]:
         node.makeplain()
       elif color == [0, 0, 0]:
         node.makeblock()
       elif color == [0, 255, 0]:
         node.makestart()
-        start = node
+        grid_obj.start = node
       elif color == [255, 0, 0]:
         node.makeend()
-        end = node
-
-  return grid, start, end
+        grid_obj.end = node
+  return grid_obj.grid, grid_obj.start, grid_obj.end
 
 
 
@@ -237,7 +134,10 @@ def reconstruct_path(came_from, current, draw):
     current.makepath()
     draw()
 
-def greedy1(draw, grid, start, end):
+def greedy1(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))   #put just adds(term for append), the 0 is our f_cost
@@ -292,7 +192,10 @@ def greedy1(draw, grid, start, end):
 
   return False
 
-def astar(draw, grid, start, end):
+def astar(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))   #put just adds(term for append), the 0 is our f_cost
@@ -311,7 +214,7 @@ def astar(draw, grid, start, end):
     for event in pygame.event.get():
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_r:
-          reset(grid, start, end)
+          grid_obj.reset()
           return True #allows exit before end is found
 
       if event.type == pygame.QUIT:
@@ -325,10 +228,8 @@ def astar(draw, grid, start, end):
       end.makeend() #so we can see the end node
       start.makestart()
       return True
-
     for neighbor in current.neighbors: #look at every neighbor of current
       temp_g_score = g_score[current] + heuristic(current.getpos(),neighbor.getpos())
-
       if temp_g_score < g_score[neighbor]: #if we have found a shorter path to neighbor
         came_from[neighbor] = current #update so that current node is stored as path to
         #get to neighbor
@@ -348,7 +249,10 @@ def astar(draw, grid, start, end):
   return False
 
 
-def hillrfs(draw, grid, start, end):
+def hillrfs(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))  # put just adds(term for append), the 0 is our f_cost
@@ -401,7 +305,10 @@ def hillrfs(draw, grid, start, end):
 
   return False
 
-def elcleggfs(draw, grid, start, end):
+def elcleggfs(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))   #put just adds(term for append), the 0 is our f_cost
@@ -461,7 +368,10 @@ def elcleggfs(draw, grid, start, end):
 
 
 
-def greedy(draw, grid, start, end):
+def greedy(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))  # put just adds(term for append), the 0 is our f_cost
@@ -500,7 +410,6 @@ def greedy(draw, grid, start, end):
             count = count + 1
             open_set.put((f_score[neighbor], count, neighbor))
             came_from[neighbor] = current
-            print(f"Added {neighbor.getpos()} to came_from with parent {current.getpos()}")
             open_set_tracker.add(neighbor)  # we also need to add it to our tracker set
             neighbor.makeopen()  # add open to the attribute of this neighbor as we have put
           # it in open set so it will turn orange
@@ -514,7 +423,10 @@ def greedy(draw, grid, start, end):
   return False
 
 
-def dijkstra(draw, grid, start, end):
+def dijkstra(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   count = 0
   open_set = PriorityQueue()
   open_set.put((0, count, start))   #the 0 is our g-score(how far from start)
@@ -566,7 +478,10 @@ def dijkstra(draw, grid, start, end):
 
   return False
 
-def play(draw, grid, start, end):
+def play(draw, grid_obj):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   came_from = {} #where each node came from so we can retrace path at the end
   found = False #while the end node is not reached
   current = start
@@ -659,7 +574,10 @@ def play(draw, grid, start, end):
   return False
 
 
-def versus(draw, grid, start, end, width):
+def versus(draw, grid_obj, width):
+  grid = grid_obj.grid
+  start = grid_obj.start
+  end = grid_obj.end
   came_from = {}  # where each node came from so we can retrace path at the end
   came_from2 = {}
   found = False  # while the end node is not reached
@@ -781,7 +699,8 @@ def versus(draw, grid, start, end, width):
     clock.tick(10)
   return False
 
-def randmap(draw, grid, ROWS):
+def randmap(draw, grid_obj):
+  grid = grid_obj.grid
 
   for row in grid:  # for every node when we start a new map we must
     for node in row:  # update all of the neighbors for this new setup of nodes
@@ -794,17 +713,21 @@ def randmap(draw, grid, ROWS):
       
 
 
-def makegrid(rows, width): #store all of the nodes so they can be used
-  grid = [] #make the array for other arrays to be added to
-  spacing = width // rows #finds the spacing between the nodes/node width
-  for i in range(rows):
-   grid.append([]) # creates a 2d array/ adds a new array for each row
-   for j in range(rows):
-     node = Node(i, j, spacing, rows) #pass all the parameters of node class in
-     grid[i].append(node) #adds the new node to the correct array for its row
-  return grid
+#def makegrid(rows, width): #store all of the nodes so they can be used
+  #grid = [] #make the array for other arrays to be added to
+  #spacing = width // rows #finds the spacing between the nodes/node width
+  #for i in range(rows):
+   #grid.append([]) # creates a 2d array/ adds a new array for each row
+   #for j in range(rows):
+     #node = Node(i, j, spacing, rows) #pass all the parameters of node class in
+     #grid[i].append(node) #adds the new node to the correct array for its row
+  #return grid
 
-def depth_map(draw, grid, width):
+
+
+def depth_map(draw, grid_obj):
+  grid = grid_obj.grid
+  grid_obj.clear()
   open_set = [grid[0][0]]
   count = 0
   depth = -1
@@ -823,6 +746,8 @@ def depth_map(draw, grid, width):
       count = count + 1 # order nodes
       set_tracker.add(node)
 
+
+
   set_tracker.remove(grid[0][0])
   start = random.choice(list(set_tracker))
   set_tracker.remove(start) #make sure end isn't same square as start
@@ -840,18 +765,10 @@ def depth_map(draw, grid, width):
       if event.type == pygame.QUIT:
         pygame.quit()
 
-      if pygame.mouse.get_pressed()[0]:  # if left mouse button clicked
-        row, col = mousepos(ROWS, width)  # gets row and col of what was clicked on
-        x, y = pygame.mouse.get_pos()
-        if width < x < (width + 100) and 40 < y < 75:
-          if start and end:
-            reset(grid, start, end)
-            return True
 
 
     valid_nodes = set()
     current = open_set[depth] #get the node from the stack
-
     for neighbor in current.neighbors:
       for sub_neighbor in neighbor.neighbors:
         if sub_neighbor.isplain() and (sub_neighbor.col == current.col or sub_neighbor.row == current.row):
@@ -872,37 +789,33 @@ def depth_map(draw, grid, width):
 
     else:
       depth = depth -1
-
   draw()
   return start, end
 
-def drawgrid(screen, rows, width): #for drawing our background grid lines
-  spacing = width// rows #finds the spacing between the nodes/node width
-  for i in range(rows+1):
-    pygame.draw.line(screen, GREY,(0, i*spacing), (width,i*spacing)) #horizontal lines
-    pygame.draw.line(screen, GREY,(i*spacing, 0), (i*spacing,width)) #verticle lines
 
-def draw(screen, grid, rows, width): #function to do all of the drawing with each frame
+def draw(screen, grid, rows, width): #function to do all the drawing with each frame
   pygame.draw.rect(screen, WHITE, (0, 0, width, width))
  #paint over everthing on the last frame
   for row in grid: #for every row(array) within grid
     for node in row: #for every node within that row(array)
       node.draw(screen) #draw the node onto the screen
 
-  drawgrid(screen, rows, width)
+  draw_triangle_grid(screen, rows, width)
   pygame.display.update()
 
-def mousepos(rows, width):
-  pos = pygame.mouse.get_pos()  # pos = (x, y) mouse position
-  y, x = pos  # get value of x and y from the mouse position
-  spacing = width // rows
-  row = y//spacing # get row from y coordinate
-  col = x//spacing # get col from x coordinate
-  return row, col
+# def mousepos(rows, width):
+#   pos = pygame.mouse.get_pos()  # pos = (x, y) mouse position
+#   y, x = pos  # get value of x and y from the mouse position
+#   spacing = width // rows
+#   row = y//spacing # get row from y coordinate
+#   col = x//spacing # get col from x coordinate
+#   return row, col
 
 
-def draw_side(screen, width, rows, algorithm):
+def draw_side(screen, width, rows, algorithm, run_time, searched_nodes):
   pygame.draw.rect(screen, WHITE, (width+5, 0, 200, width))
+  time_text = "time(s): " + str(round(run_time, 2))
+  nodes_text = "searched nodes: " + str(searched_nodes)
   color_1 = GREEN
   color_2 = GREEN
   color_3 = GREEN
@@ -936,56 +849,70 @@ def draw_side(screen, width, rows, algorithm):
   display_box(screen, "Player Vs PLayer ", width, 360, 200, 35, RED)
   display_box(screen, "Save map ", width, 440, 100, 35, YELLOW)
   display_box(screen, "Load map", width + 100, 440, 100, 35, YELLOW)
+  screen.blit(pygame.font.Font(None, 24).render(time_text, True, BLACK), (width+5, 500))
+  screen.blit(pygame.font.Font(None, 24).render(nodes_text, True, BLACK), (width + 5, 520))
+
+
 
 
   pygame.display.update()
 
 def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or node changed
-  grid = makegrid(ROWS,width) #make grid
+  grid_obj = Triangle(ROWS, width)
+  grid = grid_obj.grid
   current_algorithm = 0
   start = None
   end = None # keep track of start and end position
   screen.fill(WHITE)
-
+  run_time = 0
+  searched_nodes = 0
   run = True #if main loop is running
   started = False #if algorithm has started or not
 
   while run:
-    draw(screen, grid, ROWS, width)
-    draw_side(screen, width, ROWS, current_algorithm)
+    grid_obj.draw(screen)
+    draw_side(screen, width, ROWS, current_algorithm, run_time, searched_nodes)
     for event in pygame.event.get(): #loop through all events that could happen
       if event.type == pygame.QUIT: #if cross is hit in corner
         run = False
       if pygame.mouse.get_pressed()[0]: #if left mouse button clicked
-        row,col = mousepos(ROWS,width) #gets row and col of what was clicked on
+        row,col = grid_obj.mousepos(ROWS,width) #gets row and col of what was clicked on
         x,y = pygame.mouse.get_pos()
 
         if 0 < x < width and 0 < y < width: #make sure its on the grid
-          node = grid[row][col]
-          if not start and node != end: #if the start block hasnt yet been placed
-            start = node
-            start.makestart() #run the makestart function on the start object
-          elif not end and node != start:
-            end = node
-            end.makeend()
-          elif node != start and node != end and not node.isblock():
+          node = grid_obj.grid[row][col]
+          if  not grid_obj.start and node != grid_obj.end: #if the start block hasn't yet been placed
+            #run the makestart function on the start object
+            grid_obj.start = node
+            node.makestart()
+          elif not grid_obj.end and node != grid_obj.start:
+            grid_obj.end = node
+            node.makeend()
+          elif node != grid_obj.start and node != grid_obj.end and not node.isblock():
             node.makeblock()
 
         elif width < x < (width+100) and 0 < y < 35:
-          if start and end and current_algorithm != 0:
-            reset(grid,start,end)
+          if grid_obj.start and grid_obj.end and current_algorithm != 0:
+            grid_obj.reset()
+            searched_nodes = 2 # always includes start and end node
+            start_time = time.time()
             if current_algorithm == 1:
-              dijkstra(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              dijkstra(lambda: grid_obj.draw(screen), grid_obj)
             elif current_algorithm == 2:
-              astar(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              astar(lambda: grid_obj.draw(screen), grid_obj)
             elif current_algorithm == 3:
-              greedy(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              greedy(lambda: grid_obj.draw(screen), grid_obj)
             elif current_algorithm == 4:
-              elcleggfs(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              elcleggfs(lambda: grid_obj.draw(screen), grid_obj)
             elif current_algorithm == 5:
-              hillrfs(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              hillrfs(lambda: grid_obj.draw(screen), grid_obj)
             elif current_algorithm == 6:
-              greedy1(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+              greedy1(lambda: grid_obj.draw(screen), grid_obj)
+            run_time = time.time() - start_time
+            for row in grid:
+              for node in row:
+                if node.isclosed() or node.ispath() or node.isopen():
+                  searched_nodes += 1 #counts number of searched nodes
 
 
 
@@ -1004,13 +931,13 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
             run = False
 
         elif width < x < (width+100) and 40 < y < 75:
-          if start and end:
-            reset(grid, start, end)
+          if grid_obj.start and grid_obj.end:
+            grid_obj.reset()
 
         elif (width+100) < x < (width+200) and 40 < y < 75:
-            start = None
-            end = None
-            grid = makegrid(ROWS, width)
+            grid_obj.clear()
+            grid_obj.start = None
+            grid_obj.end = None
 
         elif width < x < (width+100) and 120 < y < 155:
             current_algorithm = 1
@@ -1031,10 +958,9 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
             current_algorithm = 6
 
         elif width < x < (width+100) and 280 < y < 315:
-          grid = makegrid(ROWS, width)
           # check to make sure there is a start and end node before algorithm is run
 
-          randmap(lambda: draw(screen, grid, ROWS, width), grid, ROWS)
+          randmap(lambda: grid_obj.draw(screen), grid_obj)
           randrow = random.randint(0, ROWS - 1)
           randcol = random.randint(0, ROWS - 1)
           start = grid[randrow][randcol]
@@ -1045,42 +971,44 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
           end.makeend()
 
         elif (width+100) < x < (width+200) and 280 < y < 315:
-          grid = makegrid(ROWS, width)
-          start, end = depth_map(lambda: draw(screen, grid, ROWS, width), grid, width)
-          end.makeend()
+          start, end = depth_map(lambda: grid_obj.draw(screen), grid_obj)
+          grid_obj.end = end
+          grid_obj.start = start
           start.makestart()
+          end.makeend()
 
         elif width < x < (width + 200) and 360 < y < 395:
-          if start and end:
-            reset(grid, start, end)
-            versus(lambda: draw(screen, grid, ROWS, width), grid, start, end, width)
+          if grid_obj.start and grid_obj.end:
+            grid_obj.reset()
+            versus(lambda: grid_obj.draw(screen), grid_obj, width)
 
         elif width < x < (width+100) and 440 < y < 475:
             savemap(grid, screen)
 
         elif (width+100) < x < (width+200) and 440 < y < 475:
-          holder = getmap(screen, ROWS, width)
+          holder = getmap(screen, ROWS, width, grid_obj)
           if holder is not None:
-            grid, start, end = holder
-            draw(screen, grid, ROWS, width)
+            grid_obj = holder
+
+
 
       elif pygame.mouse.get_pressed()[2]: #if right mouse button clicked
-        row,col = mousepos(ROWS,width) #gets row and col of what was clicked on
+        row,col = grid_obj.mousepos(ROWS,width) #gets row and col of what was clicked on
         x, y = pygame.mouse.get_pos()
         if 0 < x < width and 0 < y < width:  # make sure its on the grid
-          node = grid[row][col]
+          node = grid_obj.grid[row][col]
           node.makeplain() #turn node back to a blank white square node
-          if node == start:#so if start node is removed then the next time they left-
-            start = None #click it will be the start node
-          if node == end:
-            end = None
+          if node == grid_obj.start:#so if start node is removed then the next time they left-
+            grid_obj.start = None #click it will be the start node
+          if node == grid_obj.end:
+            grid_obj.end = None
 
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_a and start and end:
         #check to make sure there is a start and end node before algorithm is run
-          reset(grid, start, end) #removes all except the walls, start and end nodes
+          grid_obj.reset() #removes all except the walls, start and end nodes
 
-          astar(lambda: draw(screen, grid, ROWS, width), grid, start, end)
+          astar(lambda: grid_obj.draw(screen), grid, start, end)
 # this calls the algorithm that we are using and has a function within it (draw())
 # lambda is an anonymous function that calls draw function we run it, without having
 # to know everything from the draw function
@@ -1092,7 +1020,7 @@ def main(screen, width, ROWS): #Runs the whole process, eg if quit clicked or no
           grid = makegrid(ROWS, width)
 
         if event.key == pygame.K_r: #clear all
-          reset(grid, start, end)
+          grid_obj.reset()
 
 
 
