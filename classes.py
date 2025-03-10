@@ -82,11 +82,23 @@ class Triangle(Grid):
             self.grid.append(row)
 
     def mousepos(self, rows, width):
+        #we need to update this function for triangle grid so that when we click the right triangle node is picked up
         pos = pygame.mouse.get_pos()  # pos = (x, y) mouse position
         y, x = pos  # get value of x and y from the mouse position
+
         spacing = width // rows
         row = y // spacing  # get row from y coordinate
         col = x // spacing  # get col from x coordinate
+
+        y_checker = (y / spacing)-row
+        x_checker = (x / spacing)- col # make the x and y coordinates between 0 and 1 so we know where in the square
+        # they are
+        if (row+col)%2 ==0:
+            if x_checker > y_checker:
+                row -= 1
+        elif (row+col)%2 !=0:
+            if x_checker < -(y_checker-1): # using graphs formula y=mx+c
+                row -= 1
         return row, col
 
     def draw(self, screen):
