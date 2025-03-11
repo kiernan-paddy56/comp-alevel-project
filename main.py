@@ -3,10 +3,13 @@ from queue import PriorityQueue
 from pygame.constants import KEYDOWN
 from pygame.locals import QUIT
 import sqlite3
+
+from pygame.midi import get_default_output_id
+
 from database import create_table, insert_grid, fetch_grid
 from inputboxfunc import input_box, display_box
 clock = pygame.time.Clock()
-from classes import Grid,Triangle,TriangleNode,Node
+from classes import Grid, Triangle, Node, SimpleGrid, TriangleNode, SimpleNode
 from node import draw_square_grid, draw_triangle_grid
 
 create_table()
@@ -62,12 +65,12 @@ def savemap(grid, screen):
   else:
     return None
 
-def getmap(screen, rows, width, grid_obj):
+def getmap(screen, rows, width, grid_obj, grid_type):
   grid_name = input_box(screen, "name the map:", 200, 300, 400, 50)
   if grid_name:
     got_grid = fetch_grid(grid_name)
     if got_grid:
-      turn_data_to_map(got_grid, rows, width, grid_obj)
+      turn_data_to_map(got_grid, rows, width, grid_obj, grid_type)
     else:
       print("no grid with that name")
       return None
@@ -77,7 +80,7 @@ def getmap(screen, rows, width, grid_obj):
 
   return grid_obj
 
-def turn_data_to_map(got_grid, rows, width, grid_obj):
+def turn_data_to_map(got_grid, rows, width, grid_obj, grid_type):
   spacing = width // rows
   count = 0
   grid_obj.grid = [] # makes sure nodes are added grid class so they can be drawn
@@ -86,6 +89,13 @@ def turn_data_to_map(got_grid, rows, width, grid_obj):
   start = None
   end = None
 
+  if grid_type == Grid:
+    node_type = Node
+  elif grid_type == SimpleGrid:
+    node_type = SimpleNode
+  else:
+    node_type = TriangleNode
+
   for i in range(rows):
     grid_obj.grid.append([])  # creates a 2d array/ adds a new array for each row
     for j in range(rows):
@@ -93,7 +103,7 @@ def turn_data_to_map(got_grid, rows, width, grid_obj):
       col = got_grid[count][1]
       color = got_grid[count][2]
       count += 1
-      node = Node(row, col, spacing, rows)  # pass all the parameters of node class in
+      node = node_type(row, col, spacing, rows)  # pass all the parameters of node class in
       grid_obj.grid[i].append(node)
       if color == [255, 255, 255]:
         node.makeplain()
@@ -193,13 +203,24 @@ def greedy1(draw, grid_obj):
 
   return False
 
+def most_promising(set1):
+  print(len(set1))
+  best_score = 99999999
+  best_fscore = None
+  best_node = None
+  for i in range(len(set1)):
+    if set1[i][0] < best_score:
+      best_score = set1[i][0]
+      best_fscore = set1[i][1]
+      best_node = set1[i]
+  return best_fscore, best_node
+
 def astar(draw, grid_obj):
   grid = grid_obj.grid
   start = grid_obj.start
   end = grid_obj.end
   count = 0
-  open_set = PriorityQueue()
-  open_set.put((0, count, start))   #put just adds(term for append), the 0 is our f_cost
+  open_set = [(0, start)]
   #add the start node to the open set, count keeps track of when node was inserted
   came_from = {} #where each node came from so we can retrace path at the end
   g_score = {node: float("inf") for row in grid for node in row} #all nodes start at
@@ -210,7 +231,7 @@ def astar(draw, grid_obj):
 
   open_set_tracker = {start} #set to keep track of presents of nodes in priority queue
 # so we can determine if a node needs to be evaluated or not
-  while not open_set.empty(): #if open set is empty we've considered every node
+  while  len(open_set)>0: #if open set is empty we've considered every node
     #that is 'promising', if no path is yet found then there is no path to end
     for event in pygame.event.get():
       if event.type == pygame.KEYDOWN:
@@ -221,7 +242,8 @@ def astar(draw, grid_obj):
       if event.type == pygame.QUIT:
         pygame.quit()
 
-    current = open_set.get()[2] #get the node from the priority queue
+    current, get_current = most_promising(open_set) #get the node from the priority queue
+    open_set.remove(get_current)
     #the priority queue will mean we get the node with the lowest f-cost(the most
 #promising node),if the f-cost is the same then go by count(order of entry into queue)
     if current == end:
@@ -237,12 +259,10 @@ def astar(draw, grid_obj):
         g_score[neighbor] = temp_g_score #new distance away from start node
         f_score[neighbor] = temp_g_score + heuristic(neighbor.getpos(),end.getpos())
         if neighbor not in open_set_tracker: #if not in open_set queue we need to add it
-          count = count + 1
-          open_set.put((f_score[neighbor], count, neighbor))
+          open_set.append((f_score[neighbor], neighbor))
           neighbor.makeopen() #add open to the attribute of this neighbor as we have put
           #it in open set so it will turn orange
     draw()
-
     if current != start:
       current.makeclose() #we have finished looking at all the neighbors of this node
       # so we add closed as an attribute and turn it to blue
@@ -768,12 +788,14 @@ def depth_map(draw, grid_obj):
 
 
     valid_nodes = set()
+    time.sleep(2)
     current = open_set[depth] #get the node from the stack
     for neighbor in current.neighbors:
       for sub_neighbor in neighbor.neighbors:
         if sub_neighbor.isplain() and (sub_neighbor.col == current.col or sub_neighbor.row == current.row):
           if sub_neighbor in set_tracker:
             valid_nodes.add(sub_neighbor) #finds all the white squares that are possible connections
+            print(len(valid_nodes))
 
 
 
@@ -853,6 +875,7 @@ def draw_side(screen, width, rows, algorithm, run_time, searched_nodes):
   screen.blit(pygame.font.Font(None, 24).render(nodes_text, True, BLACK), (width + 5, 520))
   display_box(screen, "Square grid ", width, 540, 100, 35, CYAN)
   display_box(screen, "Triangle grid", width + 100, 540, 100, 35, CYAN)
+  display_box(screen, "Simple grid ", width, 580, 100, 35, CYAN)
 
 
 
@@ -988,7 +1011,7 @@ def main(screen, width, ROWS, grid_type): #Runs the whole process, eg if quit cl
             savemap(grid, screen)
 
         elif (width+100) < x < (width+200) and 440 < y < 475:
-          holder = getmap(screen, ROWS, width, grid_obj)
+          holder = getmap(screen, ROWS, width, grid_obj, grid_type)
           if holder is not None:
             grid_obj = holder
 
@@ -999,6 +1022,10 @@ def main(screen, width, ROWS, grid_type): #Runs the whole process, eg if quit cl
         elif (width+100) < x < (width+200) and 540 < y < 575:
           grid_type = Triangle
           main(screen, width, ROWS, Triangle)
+
+        elif width < x < (width+100) and 580 < y < 615:
+          grid_type = SimpleGrid
+          main(screen, width, ROWS, SimpleGrid)
 
 
 

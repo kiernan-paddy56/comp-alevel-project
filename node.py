@@ -16,6 +16,17 @@ def draw_triangle_grid(screen, rows, width):
     pygame.draw.line(screen, GREY, (2 * i * tri_side, 0), (width, width - (2 * i * tri_side)))  # diagonal from top
     pygame.draw.line(screen, GREY, (2 * i * tri_side, 0), (0, 2*i * tri_side))  # diagonal from top
 
+
+def draw_hexagon_grid(screen, rows, width):
+  tri_side = width // rows  # triangle side length
+  for i in range(rows+1):
+    pygame.draw.line(screen, GREY,(0, i*tri_side), (width,i*tri_side)) #horizontal lines
+  for i in range(rows//2):
+    pygame.draw.line(screen, GREY, (0, 2*i * tri_side), (width-(2*i*tri_side), width))  # diagonal from left
+    pygame.draw.line(screen, GREY, (width, 2 * i * tri_side), ((2 * i * tri_side), width))  # diagonal from right
+    pygame.draw.line(screen, GREY, (2 * i * tri_side, 0), (width, width - (2 * i * tri_side)))  # diagonal from top
+    pygame.draw.line(screen, GREY, (2 * i * tri_side, 0), (0, 2*i * tri_side))  # diagonal from top
+
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
