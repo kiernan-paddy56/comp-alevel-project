@@ -204,7 +204,6 @@ def greedy1(draw, grid_obj):
   return False
 
 def most_promising(set1):
-  print(len(set1))
   best_score = 99999999
   best_fscore = None
   best_node = None
@@ -219,15 +218,19 @@ def astar(draw, grid_obj):
   grid = grid_obj.grid
   start = grid_obj.start
   end = grid_obj.end
+  g_score = []
+  f_score = []
   count = 0
   open_set = [(0, start)]
   #add the start node to the open set, count keeps track of when node was inserted
   came_from = {} #where each node came from so we can retrace path at the end
-  g_score = {node: float("inf") for row in grid for node in row} #all nodes start at
+  for row in grid:
+    for node in row:
+      g_score.append(999999)
+      f_score.append(999999)
+
   #infinty distance away from start node as there's no path to get there yet
-  g_score[start] = 0 #g_score is distance from start, so 0 for start
-  f_score = {node: float("inf") for row in grid for node in row}
-  f_score[start] = heuristic(start.getpos(), end.getpos()) #estimate start- end distance
+  g_score[(start.row*start.totalrows)+start.col] = 0  # g_score is distance from start, so 0 for start
 
   open_set_tracker = {start} #set to keep track of presents of nodes in priority queue
 # so we can determine if a node needs to be evaluated or not
@@ -252,14 +255,14 @@ def astar(draw, grid_obj):
       start.makestart()
       return True
     for neighbor in current.neighbors: #look at every neighbor of current
-      temp_g_score = g_score[current] + heuristic(current.getpos(),neighbor.getpos())
-      if temp_g_score < g_score[neighbor]: #if we have found a shorter path to neighbor
+      temp_g_score = g_score[(current.row*current.totalrows)+current.col] + heuristic(current.getpos(),neighbor.getpos())
+      if temp_g_score < g_score[(neighbor.row*neighbor.totalrows)+neighbor.col]: #if we have found a shorter path to neighbor
         came_from[neighbor] = current #update so that current node is stored as path to
         #get to neighbor
-        g_score[neighbor] = temp_g_score #new distance away from start node
-        f_score[neighbor] = temp_g_score + heuristic(neighbor.getpos(),end.getpos())
+        g_score[(neighbor.row*neighbor.totalrows)+neighbor.col] = temp_g_score #new distance away from start node
+        f_score_neighbor = temp_g_score + heuristic(neighbor.getpos(),end.getpos())
         if neighbor not in open_set_tracker: #if not in open_set queue we need to add it
-          open_set.append((f_score[neighbor], neighbor))
+          open_set.append((f_score_neighbor, neighbor))
           neighbor.makeopen() #add open to the attribute of this neighbor as we have put
           #it in open set so it will turn orange
     draw()
@@ -788,14 +791,12 @@ def depth_map(draw, grid_obj):
 
 
     valid_nodes = set()
-    time.sleep(2)
     current = open_set[depth] #get the node from the stack
     for neighbor in current.neighbors:
       for sub_neighbor in neighbor.neighbors:
         if sub_neighbor.isplain() and (sub_neighbor.col == current.col or sub_neighbor.row == current.row):
           if sub_neighbor in set_tracker:
             valid_nodes.add(sub_neighbor) #finds all the white squares that are possible connections
-            print(len(valid_nodes))
 
 
 

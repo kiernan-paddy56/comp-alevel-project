@@ -57,7 +57,6 @@ class Node:
     array = [self.row, self.col, self.color]
     return array
 
-
   def getpos(self):
     return (self.row+0.5*self.width), (self.col+0.5*self.width)
 
