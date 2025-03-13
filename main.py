@@ -451,54 +451,54 @@ def dijkstra(draw, grid_obj):
   grid = grid_obj.grid
   start = grid_obj.start
   end = grid_obj.end
-  count = 0
-  open_set = PriorityQueue()
-  open_set.put((0, count, start))   #the 0 is our g-score(how far from start)
+  g_score = []
+  open_set = [(0, start)]
   #add the start node to the open set, count keeps track of when node was inserted
   came_from = {} #where each node came from so we can retrace path at the end
-  g_score = {node: float("inf") for row in grid for node in row} #all nodes start at 
-    #infinty distance away from start node as there's no path to get there yet
-  g_score[start] = 0 #g_score is distance from start, so 0 for start
+  for row in grid:
+    for node in row:
+      g_score.append(999999)
+
+  #infinty distance away from start node as there's no path to get there yet
+  g_score[(start.row*start.totalrows)+start.col] = 0  # g_score is distance from start, so 0 for start
 
   open_set_tracker = {start} #set to keep track of presents of nodes in priority queue
-  # so we can determine if a node needs to be evaluated or not
-  while not open_set.empty(): #if open set is empty we've considered every node
-      #that is 'promising', if no path is yet found then there is no path to end
+# so we can determine if a node needs to be evaluated or not
+  while  len(open_set)>0: #if open set is empty we've considered every node
+    #that is 'promising', if no path is yet found then there is no path to end
     for event in pygame.event.get():
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_r:
-          reset(grid, start, end)
-          return True
+          grid_obj.reset()
+          return True #allows exit before end is found
 
-    current = open_set.get()[2] #get the node from the priority queue
-      #the priority queue will mean we get the node with the lowest f-cost(the most 
-  #promising node),if the f-cost is the same then go by count(order of entery into queue)
-    open_set_tracker.remove(current) #we are now looking at current so its no longer
-  # a part of the open set
+      if event.type == pygame.QUIT:
+        pygame.quit()
+
+    current, get_current = most_promising(open_set) #get the node from the priority queue
+    open_set.remove(get_current)
+    #the priority queue will mean we get the node with the lowest f-cost(the most
+#promising node),if the f-cost is the same then go by count(order of entry into queue)
     if current == end:
-      reconstruct_path(came_from, end, draw) #call function to draw shortest path
-      end.makeend() #so we can see the end and start nodes
+      reconstruct_path(came_from, end, draw) #call function to draw the shortest path
+      end.makeend() #so we can see the end node
       start.makestart()
       return True
-
     for neighbor in current.neighbors: #look at every neighbor of current
-      temp_g_score = g_score[current] + heuristic(current.getpos(),neighbor.getpos())
-
-      if temp_g_score < g_score[neighbor]: #if we have found a shorter path to neighbor
+      temp_g_score = g_score[(current.row*current.totalrows)+current.col] + heuristic(current.getpos(),neighbor.getpos())
+      if temp_g_score < g_score[(neighbor.row*neighbor.totalrows)+neighbor.col]: #if we have found a shorter path to neighbor
         came_from[neighbor] = current #update so that current node is stored as path to
-          #get to neighbor
-        g_score[neighbor] = temp_g_score #new distance away from start node
-        if neighbor not in open_set_tracker: #if not in open_set queue we need to add it
-          count = count + 1
-          open_set.put((g_score[neighbor], count, neighbor))
-          open_set_tracker.add(neighbor) #we also need to add it to our tracker set
-          neighbor.makeopen() #add open to the attribute of this neighbor as we have put
-            #it in open set so it will turn orange
-    draw()
+        #get to neighbor
+        g_score[(neighbor.row*neighbor.totalrows)+neighbor.col] = temp_g_score #new distance away from start node
 
+        if neighbor not in open_set_tracker: #if not in open_set queue we need to add it
+          open_set.append((temp_g_score, neighbor))
+          neighbor.makeopen() #add open to the attribute of this neighbor as we have put
+          #it in open set so it will turn orange
+    draw()
     if current != start:
       current.makeclose() #we have finished looking at all the neighbors of this node
-        # so we add closed as an attribute and turn it to blue
+      # so we add closed as an attribute and turn it to blue
 
   return False
 
@@ -989,12 +989,12 @@ def main(screen, width, ROWS, grid_type): #Runs the whole process, eg if quit cl
           randmap(lambda: grid_obj.draw(screen), grid_obj)
           randrow = random.randint(0, ROWS - 1)
           randcol = random.randint(0, ROWS - 1)
-          start = grid[randrow][randcol]
-          start.makestart()  # add random start and end nodes
+          grid_obj.start = grid[randrow][randcol]
+          grid_obj.start.makestart()  # add random start and end nodes
           randrow = random.randint(0, ROWS - 1)
           randcol = random.randint(0, ROWS - 1)
-          end = grid[randrow][randcol]
-          end.makeend()
+          grid_obj.end = grid[randrow][randcol]
+          grid_obj.end.makeend()
 
         elif (width+100) < x < (width+200) and 280 < y < 315:
           start, end = depth_map(lambda: grid_obj.draw(screen), grid_obj)
