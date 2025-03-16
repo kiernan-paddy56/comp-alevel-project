@@ -284,6 +284,9 @@ def hillrfs(draw, grid_obj):
   came_from = {}  # where each node came from so we can retrace path at the end
   closed_set = set()
   closed_set.add(start)
+  g_score = {node: float("inf") for row in grid for node in row}  # all nodes start at
+  # infinty distance away from start node as there's no path to get there yet
+  g_score[start] = 0  # g_score is distance from start, so 0 for start
   f_score = {node: float("inf") for row in grid for node in row}
   f_score[start] = heuristic(start.getpos(), end.getpos())  # estimate start-end distance
 
@@ -313,10 +316,14 @@ def hillrfs(draw, grid_obj):
     for neighbor in current.neighbors:  # look at every neighbor of current
       if neighbor not in closed_set:
         f_score[neighbor] = heuristic(neighbor.getpos(), end.getpos())
+        temp_g_score = g_score[current] + heuristic(current.getpos(), neighbor.getpos())
+
+        if temp_g_score < g_score[neighbor]:  # if we have found a shorter path to neighbor
+          came_from[neighbor] = current  # update so that current node is stored as path to
+          g_score[neighbor] = temp_g_score  # new distance away from start node
         if neighbor not in open_set_tracker:  # if not in open_set queue we need to add it
           count = count + 1
           open_set.put((1/(f_score[neighbor]+1), count, neighbor))
-          came_from[neighbor] = current
           open_set_tracker.add(neighbor)  # we also need to add it to our tracker set
           neighbor.makeopen()  # add open to the attribute of this neighbor as we have put
         # it in open set so it will turn orange
